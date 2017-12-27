@@ -1,24 +1,35 @@
-local http = require "resty.http"
-local httpc = http.new()
-local res, err = httpc:request_uri("http://39.106.120.181:12580/")
-local taskid = res.body
+local idURL = "http://172.17.106.161:12580/"
 
-local timestamp = os.time()
+local parse= require "parse"
+local http = require "resty.http"
+
+local httpc = http.new()
+local res, err = httpc:request_uri(idURL)
+local newTaskid = res.body
+
+ngx.update_time()
+local timestamp = ngx.now() * 1000
 
 local userid = ngx.req.get_headers()["userid"]
 
-local reqType = "type"
-
 local uri = ngx.var.request_uri
+parse.parse(uri)
 
-local process = "process"
+local reqType = parse.getType()
 
--- ngx.header["timestamp"] = timestamp
-ngx.header["taskid"] = taskid
--- ngx.header["userid"] = userid
--- ngx.header["type"] = reqType
--- ngx.header["uri"] = uri
--- ngx.header["process"] = process
+local resourceid = parse.getResourceId()
 
-ngx.log(ngx.INFO, "timestamp:", timestamp, " taskid:", taskid, " userid:", userid, " type:", reqType, " uri:", uri, " process:", process)
+local process = parse.getProcess()
 
+if parse.needNewTaskId()
+then
+    ngx.header["taskid"] = newTaskid
+    taskid = newTaskid
+else
+    taskid = ngx.req.get_headers()["taskid"]
+end
+
+if (reqType ~= 'block' )
+then
+    ngx.log(ngx.ERR, "timestamp:", timestamp, " taskid:", taskid, " userid:", userid, " type:", reqType, " resourceid:", resourceid, " process:", process, " uri:", uri)
+end
